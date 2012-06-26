@@ -1,3 +1,6 @@
+udg_pandora/src/udg_pandora/__init__.py
+udg_pandora/src/udg_pandora/msg/*
+build/*
 data2/*
 control_g500/src/control_g500/msg/*.py
 navigation_g500/src/navigation_g500/msg/*.py
