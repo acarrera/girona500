@@ -4,7 +4,6 @@
   <license>BSD</license>  
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/girona500</url>
-  <depend stack="cola2_common" /> <!-- cola2_lib, auv_msgs -->
   <depend stack="common" /> <!-- actionlib -->
   <depend stack="common_msgs" /> <!-- nav_msgs, sensor_msgs, actionlib_msgs, geometry_msgs -->
   <depend stack="common_rosdeps" /> <!-- common_rosdeps -->
