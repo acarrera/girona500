@@ -1,0 +1,9 @@
+acoustic_detector/input/meta_data/rostype: "Subscriber"
+acoustic_detector/input/meta_data/semantics: "image_data"
+
+acoustic_detector/output/meta_data/rostype: "Publisher"
+acoustic_detector/valve/output/meta_data/semantics: "valve_position_body_frame"
+acoustic_detector/valve_panel/output/meta_data/semantics: "valve_panel_position_body_frame"
+acoustic_detector/chain/output/meta_data/semantics: "chain_position_body_frame"
+
+

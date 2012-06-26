@@ -1,0 +1,6 @@
+feature_detector/input/meta_data/rostype: "Subscriber"
+feature_detector/input/meta_data/semantics: "image_data"
+
+feature_detector/output/meta_data/rostype: "Publisher"
+feature_detector/features/output/meta_data/semantics: "feature_position"
+

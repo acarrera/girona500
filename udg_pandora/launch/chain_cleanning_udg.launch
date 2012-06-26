@@ -1,0 +1,14 @@
+<launch>
+	<!-- Launch file for UDG - Chain Cleanning Scenario -->
+	
+	<!-- Load meta-data -->
+	<rosparam command="load" file="$(find udg_pandora)/meta_data/visual_detector_meta_data.yaml" />
+	<rosparam command="load" file="$(find udg_pandora)/meta_data/acoustic_detector_meta_data.yaml" />
+	
+	<!-- Load config files -->
+
+	<!-- Load nodes -->
+	<node name="visual_detector" pkg="udg_pandora" type="visual_detector.py" output="screen"/>
+	<node name="acoustic_detector" pkg="udg_pandora" type="acoustic_detector.py" output="screen"/>
+</launch>
+

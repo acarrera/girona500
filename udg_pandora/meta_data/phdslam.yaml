@@ -1,0 +1,7 @@
+phdslam/input/meta_data/rostype: "Subscriber"
+phdslam/input/meta_data/semantics: "feature_position"
+
+phdslam/output/meta_data/rostype: "Publisher"
+phdslam/nav_status/output/meta_data/semantics: "vehicle_position_body_frame"
+phdslam/map/output/meta_data_semantics: "feature_position"
+
