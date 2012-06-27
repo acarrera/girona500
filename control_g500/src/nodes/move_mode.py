@@ -31,14 +31,11 @@ class MoveMode:
         self.v = zeros(3)
 
         self.current_waypoint = {'active': False}
-        self.initPid(now)
+        self.pid_x_z_yaw.reset(now)
+        self.pid_x_y_z_yaw.reset(now)
+        self.pid_relative_x_y_z_yaw.reset(now)
         
-    
-    def initPid(self, now):
-        self.ek_1 = zeros(6)
-        self.eik_1 = zeros(6)    
-        self.past_time = now
-            
+        
     
     def computePosError(self, current_x, current_y, current_yaw, req_x, req_y):
         R = matrix(array([cos(current_yaw), -sin(current_yaw), 0.0, sin(current_yaw), cos(current_yaw), 0.0, 0.0, 0.0, 1.0]))
@@ -95,7 +92,10 @@ class MoveMode:
             self.current_waypoint['priority'] = req.goal.priority
             self.current_waypoint['stamp_sec'] = now
             self.current_waypoint['achieved'] = False
-            self.initPid(now)
+            self.pid_x_z_yaw.reset(now)
+            self.pid_x_y_z_yaw.reset(now)
+            self.pid_relative_x_y_z_yaw.reset(now)
+       
             return True
         elif (self.current_waypoint['requester'] == req.goal.requester and self.current_waypoint['id'] == req.goal.id) :
             #Same request
@@ -108,7 +108,9 @@ class MoveMode:
             self.current_waypoint['priority'] = req.goal.priority
             self.current_waypoint['stamp_sec'] = now
             self.current_waypoint['achieved'] = False
-            self.initPid(now)
+            self.pid_x_z_yaw.reset(now)
+            self.pid_x_y_z_yaw.reset(now)
+            self.pid_relative_x_y_z_yaw.reset(now)
             return True
         elif (now > (self.current_waypoint['stamp_sec'] + 2.0)) or (req.goal.priority >  self.current_waypoint['priority']) or self.current_waypoint['achieved']:
             #Last petition is out-dated or
@@ -120,7 +122,9 @@ class MoveMode:
             self.current_waypoint['priority'] = req.goal.priority
             self.current_waypoint['stamp_sec'] = now
             self.current_waypoint['achieved'] = False
-            self.initPid(now)
+            self.pid_x_z_yaw.reset(now)
+            self.pid_x_y_z_yaw.reset(now)
+            self.pid_relative_x_y_z_yaw.reset(now)
             return True
         else :
             print "ERROR! Pilot has a more priority request to serve"
@@ -183,14 +187,7 @@ class MoveMode:
         error = array([x_error, 0.0, z_error, 0.0, 0.0, yaw_error])
         
         #Compute Body Velocity request
-        bvr = zeros(6)
-        real_period = (now - self.past_time) #nano seconds to seconds
-        self.past_time = now
-        [bvr, self.ek_1, self.eik_1]  = self.pid_x_z_yaw.computePid(error, 
-                                                                    zeros(6),
-                                                                    self.ek_1, 
-                                                                    self.eik_1, 
-                                                                    real_period)
+        bvr = self.pid_x_z_yaw.compute(error, zeros(6), now)
         
         # Compute feedback
         success = self.checkTolerance([False, False, req.disable_axis.z, True, True, True], 
@@ -268,15 +265,7 @@ class MoveMode:
         error = array([0.0, 0.0, z_error, 0.0, 0.0, -yaw_error])
         
         #Compute Body Velocity request
-        bvr = zeros(6)
-        real_period = (now - self.past_time) #nano seconds to seconds
-        self.past_time = now
-        [bvr, self.ek_1, self.eik_1]  = self.pid_x_z_yaw.computePid(error, 
-                                                                    zeros(6),
-                                                                    self.ek_1, 
-                                                                    self.eik_1, 
-                                                                    real_period)
-        
+        bvr = self.pid_x_z_yaw.compute(error, zeros(6), now)
         bvr *= self.max_velocity
         
         #TODO: All these vars have to be defined in some other place
@@ -336,7 +325,19 @@ class MoveMode:
         current_d = (m_l * self.p[0] - self.p[1] + c_l)/sqrt(m_l**2 + 1)
         signe = (m_l * previous_req.position.north - previous_req.position.east + c_l)/sqrt(m_l**2 + 1)
         if signe * current_d < 0.0: 
-            success = True
+            # The vehicle has crossed the line
+            if req.disable_axis.z:
+            # If z is uncontrolled
+                success = True
+            elif abs(current[2] - desired[2]) < tolerance[2]: 
+            # If Z is ok, success = True. 
+                success = True
+            else:
+            # Otherwise X and Yaw = 0.0 and success = false
+                bvr[0] = 0.0
+                bvr[5] = 0.0
+                success = False
+            
         # print "distance: ", current_d
         # print "signe: ", signe
         
@@ -397,15 +398,8 @@ class MoveMode:
         error = array([x_error, y_error, z_error, 0.0, 0.0, yaw_error])
         
         #Compute Body Velocity request
-        bvr = zeros(6)
-        real_period = (now - self.past_time) #nano seconds to seconds
-        self.past_time = now
-        [bvr, self.ek_1, self.eik_1]  = self.pid_x_y_z_yaw.computePid(error, 
-                                                                      zeros(6), 
-                                                                      self.ek_1, 
-                                                                      self.eik_1, 
-                                                                      real_period)
-    
+        bvr = self.pid_x_y_z_yaw.compute(error, zeros(6), now)
+        
         # Send Body Velocity Request
         if req.disable_axis.z == True:
             bvr[2] = 0.0
@@ -419,8 +413,7 @@ class MoveMode:
         print 'current: ', current
         print 'desired: ', desired
         print 'tolerance: ', tolerance
-        
-        
+             
         return [success, bvr*self.max_velocity]
     
     
@@ -454,14 +447,7 @@ class MoveMode:
             error = array([0.0, 0.0, z_error, 0.0, 0.0, yaw_error])
         
         # Compute Body Velocity request
-        bvr = zeros(6)
-        real_period = (now - self.past_time) 
-        self.past_time = now
-        [bvr, self.ek_1, self.eik_1]  = self.pid_relative_x_y_z_yaw.computePid(error, 
-                                                                               zeros(6), 
-                                                                               self.ek_1, 
-                                                                               self.eik_1, 
-                                                                               real_period)
+        bvr = self.pid_relative_x_y_z_yaw.compute(error, zeros(6), now)
         
         # Send Body Velocity Request
         success = self.checkTolerance([False, False, req.disable_axis.z, True, True, req.disable_axis.yaw], 

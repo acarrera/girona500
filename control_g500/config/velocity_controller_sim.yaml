@@ -4,8 +4,7 @@
 # - The output is sent to the thrusters allocator 
  
 # Per DoF [X, Y, Z, Roll, Pitch, Yaw]
-velocity_controller/force_max: [1.0, 1.0, 1.0, 0.0, 0.0, 1.5]
-velocity_controller/is_enabled: true
+velocity_controller/force_max: [1.5, 1.0, 1.5, 0.0, 0.5, 1.0]
 
 # Velocity PID per DoF
 velocity_controller/pid_velocity_feed_forward_force: [0.0, 0.0, -0.018, 0.0, 0.0, 0.0]
@@ -19,7 +18,7 @@ velocity_controller/open_loop_adjust_poly_x: [1.2, 0.0]
 velocity_controller/open_loop_adjust_poly_y: [1.0, 0.0]
 velocity_controller/open_loop_adjust_poly_z: [0.8, 0.0]
 velocity_controller/open_loop_adjust_poly_roll: [0.0]
-velocity_controller/open_loop_adjust_poly_pitch: [0.0]
+velocity_controller/open_loop_adjust_poly_pitch: [1.0, 0.0]
 velocity_controller/open_loop_adjust_poly_yaw: [-6.9714, 6.2504, 0.0]  # Real value: [-6.9714, 6.2504, 0.1206]
 
 

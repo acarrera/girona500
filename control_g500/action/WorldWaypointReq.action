@@ -1,0 +1,43 @@
+# Define the goal
+# Common waypoint details
+auv_msgs/GoalDescriptor goal
+
+# If true, maintain Z position relative to altitude, otherwise depth.
+bool altitude_mode
+
+auv_msgs/NED position
+float32 altitude
+auv_msgs/RPY orientation
+
+# Axes of control to disable, in body frame.
+auv_msgs/Bool6Axis disable_axis
+
+# Tolerances are in body frame, zero indicates pilot default should be used.
+geometry_msgs/Vector3 position_tolerance
+auv_msgs/RPY orientation_tolerance
+
+# Available modes are: 
+# - If ABSOLUTE_X_Z_YAW mode then: 'los' (if Line of Sight), whatever if waypoint.
+# - If ABSOLUTE_X_Y_Z_YAW mode then: 'neverending' if the action only finalizes when preempted 
+#                                    or whatever to finalize when the goal is reached.
+string mode
+
+---
+
+# Define the result
+# If true, maintain Z position relative to altitude, otherwise depth.
+bool altitude_mode
+
+auv_msgs/NED position
+float32 altitude
+auv_msgs/RPY orientation
+
+---
+
+# Define a feedback message
+# If true, maintain Z position relative to altitude, otherwise depth.
+bool altitude_mode
+
+auv_msgs/NED position
+float32 altitude
+auv_msgs/RPY orientation

@@ -1,0 +1,36 @@
+# GENERAL
+sound_speed: 1490
+
+# CONTROL
+pilot/max_velocity: [0.5, 0.2, 0.5, 0.0, 0.0, 0.3]
+pitch_controller/desired_pitch: 0.0
+
+# SAFETY
+safety_g500/set_zero_velocity_depth: 3.0
+safety_g500/mission_time_out: 60
+safety_g500/controlled_surface_depth: 2.5
+safety_g500/start_vc_once_init: True
+safety_g500/min_battery_level: 15.0
+safety_g500/min_altitude: 0.0
+safety_g500/max_depth: 30.0
+
+# NAVIGATION SENSORS
+teledyne_explorer_dvl/maximum_tracking_depth: "01000"
+teledyne_explorer_dvl/need_configuration: False
+navigator/gps_init_samples: 4
+navigator/gps_update: False
+
+# PERCEPTION SENSORS
+imagenex_multibeam_sonar/range: -1
+imagenex_multibeam_sonar/gain: 4
+imagenex_multibeam_sonar/file_max_time: 1800
+imagenex_multibeam_sonar/automatic_sound_speed: False
+bt878_framegrabber/fps: 2
+bt878_framegrabber/lights_on: True
+imagenex_side_scan_sonar/balance_gain: 30
+imagenex_side_scan_sonar/frequency: 0
+imagenex_side_scan_sonar/range: 10
+imagenex_side_scan_sonar/file_max_time: 1800
+imagenex_side_scan_sonar/automatic_sound_speed: True
+imagenex_side_scan_sonar/data_gain: 10
+

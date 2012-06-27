@@ -21,5 +21,6 @@
   <depend package="cola2_lib"/>
   <depend package="safety_g500"/>
   <depend package="kdl"/>
+  <depend package="control_g500"/>
 </package>
 

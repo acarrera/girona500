@@ -25,15 +25,12 @@ class VelocityController :
         
         # Load parameters
         self.getConfig()
-        self.enable = self.is_enabled
+        self.enable = False
         
         # Input data 
         self.v = zeros(6)
         self.desired_velocity = zeros(6)
         self.resp = BodyVelocityReq()
-        self.ek_velocity_1 = zeros(6)
-        self.eik_velocity_1 = zeros(6)
-        self.past_time = rospy.Time.now()
         
         # Create publisher
         self.pub_tau = rospy.Publisher("/control_g500/velocity_to_force_req", BodyForceReq)
@@ -75,12 +72,7 @@ class VelocityController :
             td = array(rospy.get_param("velocity_controller/pid_velocity_td"))
         else:
             rospy.logfatal("velocity_controller/pid_velocity_td param not found")
-
-        if rospy.has_param("velocity_controller/is_enabled") :
-            self.is_enabled = rospy.get_param("velocity_controller/is_enabled")
-        else:
-            rospy.logfatal("velocity_controller/is_enabled param not found")
-                        
+                 
         self.adjust_poly = []
 
         if rospy.has_param("velocity_controller/open_loop_adjust_poly_x") :
@@ -119,7 +111,7 @@ class VelocityController :
         rospy.loginfo('%s, Td: %s', self.name, str(td))
         rospy.loginfo('%s, fff: %s', self.name, str(fff))
         
-        self.pid = cola2_lib.PID(kp, ti, td, fff)
+        self.pid = cola2_lib.PID(kp, ti, td, fff, rospy.Time.now().to_sec())
     
     
     def enableSrv(self, req):
@@ -169,23 +161,8 @@ class VelocityController :
             rospy.loginfo("desired_velocity: %s", str(self.desired_velocity))
             rospy.loginfo("current velocity: %s", str(self.v))
             
-            # Apply PID to obtain tau
-            # Compute real period
-            now = rospy.Time.now()
-            real_period_ = (now - self.past_time) #nano seconds to seconds
-            self.past_time = now
-            rospy.loginfo("real_period: %s", str(real_period_.to_sec()))
-            
             # Compute TAU using a PID
-            pid_tau = zeros(6)
-            
-            [pid_tau, 
-            self.ek_velocity_1, 
-            self.eik_velocity_1] = self.pid.computePid( self.desired_velocity, 
-                                                        self.v, 
-                                                        self.ek_velocity_1, 
-                                                        self.eik_velocity_1, 
-                                                        real_period_.to_sec())
+            pid_tau  = self.pid.compute(self.desired_velocity, self.v, rospy.Time.now().to_sec())
             
             # Compute TAU using an Open Loop Controller
             open_loop_tau = zeros(6)
@@ -198,7 +175,7 @@ class VelocityController :
             rospy.loginfo("Tau: %s", str(tau))
             
             data = BodyForceReq()
-            data.header.stamp = now
+            data.header.stamp = rospy.Time.now()
             data.header.frame_id = "vehicle_frame"
             data.goal.requester = "velocity_controller"
             data.goal.id = 0

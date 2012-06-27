@@ -5,29 +5,35 @@ import math
 from numpy import *
 
 class PID:
-    def __init__(self, p, i, d, fff):
+    # TODO: ek_1 , eik_1 i T no podrian estar dins de la propia classe???
+    def __init__(self, p, i, d, fff, time_in_sec):
         if len(p) == len(i) and len(p) == len(d) and len(p) == len(fff):
             self.kp = p
             self.ti = i
             self.td = d
             self.fff = fff
             self.n = len(p)
+            self.ek_1 = zeros(self.n)
+            self.eik_1 = zeros(self.n)
+            self.past_time = time_in_sec
         else:
             print 'ERROR: Bad vectors size!!'
-        
-        
-    def computePid(self, desired, current, ek_1, eik_1, T):
+
+
+    def compute(self, desired, current, time_in_sec):
         # Note: All the operations are done element by element
-        
+        T = time_in_sec - self.past_time
+        self.past_time = time_in_sec
+    
         # Compute errors
-        if  len(desired) == self.n and len(current) == self.n and len(ek_1) == self.n and len(eik_1) == self.n:            
+        if  len(desired) == self.n and len(current) == self.n:            
             ek = zeros(self.n)
             eik = zeros(self.n)
             edotk = zeros(self.n)
             
             ek = desired - current
-            edotk = (ek - ek_1) / T
-            eik = eik_1 + (ek * T)
+            edotk = (ek - self.ek_1) / T
+            eik = self.eik_1 + (ek * T)
             
             # Control law
             tau = zeros(self.n)
@@ -42,7 +48,7 @@ class PID:
                     # Anti-windup condition: if tau is saturated and ek has the 
                     # same sign than tau, eik does not increment
                     if abs(tau[i]) > 1.0 and ek[i]*tau[i] > 0:
-                        eik[i] = eik_1[i]
+                        eik[i] = self.eik_1[i]
                         # Because eik has been modified, recompute tau
                         int = (self.kp[i]/self.ti[i])*eik[i]
                         tau[i] = self.kp[i]*ek[i] + self.kp[i]*self.td[i]*edotk[i] + int + self.fff[i]   
@@ -53,11 +59,22 @@ class PID:
             # Saturate tau
             tau = saturateValue(tau, 1.0) 
             
-            return [tau, ek, eik]
+            self.ek_1 = ek
+            self.eik_1 = eik
+            return tau
+        
         else:
             return None
-
-
+        
+        
+    def reset(self, now):
+        self.ek_1 = zeros(self.n)
+        self.eik_1 = zeros(self.n)
+        self.past_time = now
+        
+        
+        
+        
 def saturateVector(v, min_max) :
     ret = zeros( len(v) )
     for i in range( len(v) ) :
@@ -74,6 +91,15 @@ def saturateValue(v, min_max) :
         elif v[i] > min_max : ret[i] = min_max
         else : ret[i] = v[i]
     return ret
+
+
+def saturateValueFloat(v, min_max):
+    if v > min_max:
+        v = min_max
+    elif v < -min_max:
+        v = -min_max
+
+    return v
 
 
 def computePid6Dof(desired, current, kp, ki, kd, sat, ek_1, eik_1, T):

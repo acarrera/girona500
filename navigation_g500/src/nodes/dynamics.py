@@ -13,6 +13,7 @@ from auv_msgs.msg import *
 from navigation_g500.msg import *
 from sensor_msgs.msg import Imu
 from sensor_msgs.msg import Range
+from control_g500.msg import ThrustersData
 
 # More imports
 from numpy import *
@@ -359,6 +360,7 @@ class Dynamics :
         yaw = self.p[5] + random.normal(0.0, self.imu_orientation_covariance[2])
         
         vehicle_rpy = PyKDL.Rotation.RPY(roll, pitch, yaw)
+        #TODO: Is this right? Maybe vehicle_rpy * self.imu_tf.M instead???
         imu_orientation = self.imu_tf.M * vehicle_rpy
         angle = imu_orientation.GetRPY()
         angle = tf.transformations.quaternion_from_euler(angle[0], angle[1], angle[2])
@@ -399,6 +401,8 @@ class Dynamics :
         #Vdvl = Vg500 + (v.ang.z x dist(dvl->g500))
         angular_velocity = array([self.v[3], self.v[4], self.v[5]])
         distance = self.dvl_tf_array[0:3]
+        
+        #TODO: CHECK IF--> v_dvl = v_dvl - cross(angular_velocity, distance) instead
         v_dvl = v_dvl + cross(angular_velocity, distance)
         
         #The DVL is not dextrogir

@@ -71,6 +71,7 @@ class MergeBvr :
         ret.twist.angular.y = 0.0
         ret.twist.angular.z = 0.0
         ret.goal.priority = GoalDescriptor.PRIORITY_LOW
+        ret.goal.requester = self.name
         
         print "self.sp: ", len(self.sp)
         if len(sp) == 0 :
@@ -111,9 +112,9 @@ class MergeBvr :
             return ret
         
         
-    def __init__(self):
+    def __init__(self, name):
         """ Controls the velocity and pose of an AUV  """
-    
+        self.name = name
     # Input data 
         self.sp = []
     
@@ -142,7 +143,7 @@ class MergeBvr :
 if __name__ == '__main__':
     try:
         rospy.init_node('merge_bvr')
-        merge_bvr = MergeBvr()
+        merge_bvr = MergeBvr(rospy.get_name())
         r = rospy.Rate(10)
         while not rospy.is_shutdown():
             merge_bvr.iterate()

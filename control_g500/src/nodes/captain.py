@@ -9,9 +9,12 @@ import actionlib
 from threading import Thread
 
 from auv_msgs.msg import *
-from auv_msgs.srv import GotoSrv, GotoSrvRequest, GotoSrvResponse
+from control_g500.msg import *
+from control_g500.srv import GotoSrv, GotoSrvRequest, GotoSrvResponse
 from safety_g500.msg import MissionStatus
-from std_srvs.srv import Empty, EmptyResponse
+from std_srvs.srv import Empty, EmptyResponse, EmptyRequest
+from safety_g500.srv import MissionTimeout, MissionTimeoutRequest, MissionTimeoutResponse
+
 
 class Trajectory:
     def __init__(self, north, east, depth, altitude, altitude_mode, roll, pitch, yaw, wait, disable_axis, tolerance, priority):
@@ -35,20 +38,28 @@ class Trajectory:
 class Captain:
     def __init__(self, name):
         self.name = name
-        self.getConfig()
-        self.mission_status = MissionStatus()
         
         # Init internal state 
         self.init_trajectory = False
         self.init_keep_pose = False
         self.init_goto = False
+        self.init_keep_on_surface = False
+        
+        # Create publisher
+        self.pub_mission_status = rospy.Publisher("/control_g500/mission_status", MissionStatus)
+        self.pub_body_velocity_req = rospy.Publisher("/control_g500/body_velocity_req", BodyVelocityReq)
+        
+        # Load config parameters
+        self.getConfig()
+        
+        # Create mission status messager
+        self.mission_status = MissionStatus()
         
         # Create "absolute" client
         self.client_absolute = actionlib.SimpleActionClient('absolute_movement', WorldWaypointReqAction)
         self.client_absolute.wait_for_server()
     
-        # Create publisher
-        self.pub_mission_status = rospy.Publisher("/safety_g500/mission_status", MissionStatus)
+        # Create Timer
         rospy.Timer(rospy.Duration(1.0), self.pubMissionStatus)
         
         # Create Subscriber
@@ -61,12 +72,55 @@ class Captain:
         self.enable_keep_position = rospy.Service('/control_g500/enable_keep_position', Empty, self.enableKeepPosition)
         self.disable_keep_position = rospy.Service('/control_g500/disable_keep_position', Empty, self.disableKeepPosition)
         self.goto = rospy.Service('/control_g500/goto', GotoSrv, self.goto)
-   
+        self.enable_keep_on_surface = rospy.Service('/control_g500/enable_keep_on_surface', Empty, self.enableKeepOnSurface)
+        self.disable_keep_on_surface = rospy.Service('/control_g500/disable_keep_on_surface', Empty, self.disableKeepOnSurface)
+        
         # Map shutdown function
         rospy.on_shutdown(self.stop)
-         
         
+         
+    def enableKeepOnSurface(self, req):
+        if not self.init_keep_pose and not self.init_trajectory and not self.init_goto and not self.init_keep_on_surface:
+            self.init_keep_on_surface = True
+            t = Thread(target=self.keepOnSurfaceThrd, args=())
+            t.start()
+            
+        return EmptyResponse()
+    
+    
+    def disableKeepOnSurface(self, req):
+        rospy.loginfo('%s Disable keep on surface', self.name)
+        self.init_keep_on_surface = False
+        return EmptyResponse()
+    
+    
+    def keepOnSurfaceThrd(self):
+        bvr = BodyVelocityReq()
+        bvr.twist.linear.x = 0.0
+        bvr.twist.linear.y = 0.0
+        bvr.twist.linear.z = -0.05
+        bvr.twist.angular.x = 0.0
+        bvr.twist.angular.y = 0.0
+        bvr.twist.angular.z = 0.0
+        bvr.disable_axis.x = True
+        bvr.disable_axis.y = True
+        bvr.disable_axis.z = False
+        bvr.disable_axis.roll = True
+        bvr.disable_axis.pitch = True
+        bvr.disable_axis.yaw = True
+        bvr.goal.priority = GoalDescriptor.PRIORITY_NORMAL
+        bvr.goal.requester = self.name
+        
+        while self.init_keep_on_surface:
+            bvr.header.stamp = rospy.Time.now()
+            self.pub_body_velocity_req.publish(bvr)
+            rospy.sleep(0.1)
+    
+    
     def enableKeepPosition(self, req):
+        if self.init_keep_on_surface:
+            self.disableKeepOnSurface(EmptyRequest())
+            
         if not self.init_keep_pose and not self.init_trajectory and not self.init_goto:
             self.init_keep_pose = True
             rospy.loginfo('%s Enable keep position', self.name)
@@ -105,7 +159,7 @@ class Captain:
             rospy.logerr('%s: keepPose: %s', self.name, self.init_keep_pose)
             rospy.logerr('%s: trajectory: %s', self.name, self.init_trajectory)
             rospy.logerr('%s: goto: %s', self.name, self.init_goto)
-            
+        
         return EmptyResponse()
     
         
@@ -121,8 +175,27 @@ class Captain:
            Once each way-point is reached, if some waiting time is defined,
            performs a keep position movement to this way-point. """
         
+        if self.init_keep_on_surface:
+            self.disableKeepOnSurface(EmptyRequest())
+            
         if not self.init_trajectory and not self.init_keep_pose and not self.init_goto:
             self.init_trajectory = True
+            
+            try: 
+                rospy.wait_for_service('/mission_timeout', 5)
+                # TODO: solve wait for android services
+                rospy.sleep(1.0)
+                self.mission_timeout_srv = rospy.ServiceProxy('/mission_timeout', MissionTimeout)
+                mt = MissionTimeoutRequest()
+                mt.start_mission = True
+                mt.time_out = self.trajectory_time_out
+                rospy.loginfo('Init trajectory with mission_timeout: %s', mt)
+                response = self.mission_timeout_srv(mt)
+                if not response.success:
+                    rospy.logerr('%s, Error initializing Mission Timeout', self.name)
+            except rospy.exceptions.ROSException:
+                rospy.logerr('%s, Error initializing Mission Timeout. Are you in simulation mode?', self.name)
+            
             t = Thread(target=self.followTrajectory, args=())
             t.start()
         else:
@@ -142,14 +215,16 @@ class Captain:
     
     
     def goto(self, req):
+        
+        if self.init_keep_on_surface:
+            self.disableKeepOnSurface(EmptyRequest())
+            
         if not self.init_trajectory and not self.init_keep_pose and not self.init_goto:
             self.init_goto = True
             rospy.loginfo('north: %s', req.north)
             rospy.loginfo('east: %s', req.east)
             rospy.loginfo('z: %s', req.z)
             rospy.loginfo('altitude_mode: %s', req.altitude_mode)
-            rospy.loginfo('wait: %s', req.wait)
-            rospy.loginfo('surface: %s', req.surface)
             rospy.loginfo('%s Enable keep position', self.name)
             
             goal = WorldWaypointReqGoal()
@@ -165,25 +240,16 @@ class Captain:
             goal.orientation.pitch = 0.0
             goal.orientation.yaw = 0.0
             
-            tolerance = 2.0
-            if req.wait > 0.0:
-                goal.mode = 'neverending'
-                goal.disable_axis.x = False
-                goal.disable_axis.y = False
-                goal.disable_axis.z = False
-                goal.disable_axis.roll = True
-                goal.disable_axis.pitch = True
-                goal.disable_axis.yaw = True
-            else:
-                goal.mode = 'waypoint'
-                goal.disable_axis.x = False
-                goal.disable_axis.y = True
-                goal.disable_axis.z = False
-                goal.disable_axis.roll = True
-                goal.disable_axis.pitch = True
-                goal.disable_axis.yaw = False
-                
+            goal.mode = 'waypoint'
+            goal.disable_axis.x = False
+            goal.disable_axis.y = True
+            goal.disable_axis.z = False
+            goal.disable_axis.roll = True
+            goal.disable_axis.pitch = True
+            goal.disable_axis.yaw = False
+            
             # Set tolerance
+            tolerance = 2.0
             goal.position_tolerance.x = tolerance
             goal.position_tolerance.y = tolerance
             goal.position_tolerance.z = tolerance/2.0
@@ -192,17 +258,7 @@ class Captain:
             goal.orientation_tolerance.yaw = tolerance
             
             self.client_absolute.send_goal(goal)
-            
-            if req.wait > 0.0:
-                rospy.sleep(req.wait)
-                self.client_absolute.cancel_goal()
-                if req.surface:
-                    goal.altitude_mode = False
-                    goal.position.depth = 0.0
-                    goal.position_tolerance.z = 0.2
-                    goal.disable_axis.y = False
-                    goal.mode = 'normal'
-                    self.client_absolute.send_goal(goal)
+            self.client_absolute.wait_for_result()
         else:
             rospy.logerr('%s, Impossible to enable trajectory, another service is running.', self.name)
             rospy.logerr('%s: keepPose: %s', self.name, self.init_keep_pose)
@@ -219,7 +275,7 @@ class Captain:
             goal = WorldWaypointReqGoal()
             goal.goal.requester = self.name
             
-            #It is important that the first goal.id in a trajectory is 0 (pilot requirement)
+            # It is important that the first goal.id in a trajectory is 0 (pilot requirement)
             goal.goal.id = i 
             
             goal.goal.priority = self.trajectory.priority
@@ -266,6 +322,8 @@ class Captain:
             # Send the waypoint
             rospy.loginfo("%s, Request GOAL:\n%s", self.name, goal)
             self.client_absolute.send_goal(goal)
+            
+            # time out for each way-point?
             self.client_absolute.wait_for_result()
             result = self.client_absolute.get_result()
             rospy.loginfo("%s, Obtained RESULT:\n%s", self.name, result)
@@ -335,6 +393,7 @@ class Captain:
         self.init_trajectory = False
         self.init_keep_pose = False
         self.init_goto = False
+        self.init_keep_on_surface = False
         self.client_absolute.cancel_goal()
          
          
@@ -399,6 +458,20 @@ class Captain:
         else:
             rospy.logfatal("trajectory/priority")
         
+        if rospy.has_param("trajectory/time_out") :
+            self.trajectory_time_out = rospy.get_param("trajectory/time_out")
+        else:
+            rospy.logfatal("trajectory/time_out")
+        
+        if rospy.has_param("captain/enable_keep_on_surface") :
+            init_keep_on_surface = rospy.get_param("captain/enable_keep_on_surface")
+            rospy.loginfo("captain/enable_keep_on_surface = %s", init_keep_on_surface)
+            if init_keep_on_surface:
+                self.enableKeepOnSurface(EmptyRequest())
+        else:
+            rospy.loginfo("captain/enable_keep_on_surface = False")
+            
+            
         self.trajectory = Trajectory(north, 
                                      east, 
                                      depth, 

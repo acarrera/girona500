@@ -1,19 +1,19 @@
 #Pose PID per DoF
 pilot/pid_x_z_yaw_feed_forward_force: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-pilot/pid_x_z_yaw_kp: [1.0, 0.0, 0.5, 0.0, 0.0, 0.7]
+pilot/pid_x_z_yaw_kp: [1.0, 0.0, 0.3, 0.0, 0.0, 0.8]
 pilot/pid_x_z_yaw_ti: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-pilot/pid_x_z_yaw_td: [0.2, 0.0, 0.2, 0.0, 0.0, 0.2]
+pilot/pid_x_z_yaw_td: [0.2, 0.0, 0.0, 0.0, 0.0, 0.3]
 
 pilot/pid_x_y_z_yaw_feed_forward_force: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-pilot/pid_x_y_z_yaw_kp: [1.0, 1.0, 0.5, 0.0, 0.0, 0.7]
+pilot/pid_x_y_z_yaw_kp: [1.0, 1.0, 0.5, 0.0, 0.0, 0.8]
 pilot/pid_x_y_z_yaw_ti: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-pilot/pid_x_y_z_yaw_td: [0.2, 0.2, 0.1, 0.0, 0.0, 0.2]
+pilot/pid_x_y_z_yaw_td: [0.2, 0.2, 0.1, 0.0, 0.0, 0.3]
 
 pilot/relative_pid_x_y_z_yaw_feed_forward_force: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 pilot/relative_pid_x_y_z_yaw_kp: [0.2, 0.2, 1.0, 0.0, 0.0, 1.0]
 pilot/relative_pid_x_y_z_yaw_ti: [8.0, 8.0, 8.0, 0.0, 0.0, 8.0]
 pilot/relative_pid_x_y_z_yaw_td: [0.1, 0.1, 0.1, 0.0, 0.0, 0.1]
 
-pilot/max_velocity: [0.5, 0.2, 0.5, 0.0, 0.0, 0.3] # --> check joy.yaml they should be similar
+# pilot/max_velocity: [0.5, 0.2, 0.5, 0.0, 0.0, 0.3] # --> check mission_XXX.yaml
 pilot/min_velocity_los: [0.2, 0.0, 0.0, 0.0, 0.0, 0.0]
 pilot/max_angle_error: 0.2

@@ -1,4 +1,4 @@
-# safety_g500/mission_time_out: 30 --> Defined in mission.yaml file
+safety_g500/mission_time_out: 15 
 safety_g500/heart_beat_period: 10.0
 safety_g500/periodic_check: 2.0
 safety_g500/max_battery_level_period: 10
@@ -9,5 +9,8 @@ safety_g500/max_pressure: 1200.0
 safety_g500/max_temperature: 60.0
 safety_g500/min_battery_level: 15.0
 safety_g500/max_init_time: 30.0
+safety_g500/start_vc_once_init: true
+safety_g500/controlled_surface_depth: 2.5
+safety_g500/set_zero_velocity_depth: 3.0
 
 

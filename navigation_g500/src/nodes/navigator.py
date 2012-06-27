@@ -11,6 +11,7 @@ import PyKDL
 import math
 import cola2_lib
 from ekf_g500 import EKFG500
+import threading
 
 # Msgs imports
 from nav_msgs.msg import Odometry
@@ -20,7 +21,7 @@ from sensor_msgs.msg import Imu
 from auv_msgs.msg import NavSts
 from safety_g500.msg import NavSensorsStatus
 from std_srvs.srv import Empty, EmptyResponse
-from auv_msgs.srv import SetNE, SetNEResponse, SetNERequest
+from navigation_g500.srv import SetNE, SetNEResponse, SetNERequest
 
 
 # Python imports
@@ -42,6 +43,7 @@ class Navigator :
         # To filter yaw rate
         self.heading_buffer = []
         self.savitzky_golay_coeffs = SAVITZKY_GOLAY_COEFFS
+        self.lock = threading.Lock() # TODO: Should I use RLock instead? 
         
         # Create Odometry msg
         self.odom = Odometry()
@@ -101,20 +103,28 @@ class Navigator :
    
 
     def resetNavigation(self, req):
-        rospy.loginfo("%s: Reset Navigation", self.name)    
+        rospy.loginfo("%s: Reset Navigation", self.name)
+        
+        self.lock.acquire()   
         x = self.ekf.getStateVector()
         x[0] = 0.0
         x[1] = 0.0
         self.ekf.initialize(x)
+        self.lock.release()
+        
         return EmptyResponse()
         
         
     def setNavigation(self, req):
         rospy.loginfo("%s: Set Navigation to: \n%s", self.name, req)    
+        
+        self.lock.acquire()   
         x = self.ekf.getStateVector()
         x[0] = req.north
         x[1] = req.east
         self.ekf.initialize(x)
+        self.lock.release()
+        
         ret = SetNEResponse()
         ret.success = True
         return ret
@@ -177,7 +187,11 @@ class Navigator :
                     # Update EKF
                     if self.makePrediction():
                         z = array([gps.north, gps.east])
+                        
+                        self.lock.acquire()
                         self.ekf.gpsUpdate(z)
+                        self.lock.release()
+                        
                         self.publishData()
                         
                 elif distance < 50.0:
@@ -243,14 +257,18 @@ class Navigator :
             # Update EKF
             if self.makePrediction():
                 z = array([vr2[0], vr2[1], vr2[2]])
+        
+                self.lock.acquire()
                 if dvl_update == 1: 
                     self.ekf.dvlUpdate(z, 'bottom')
                 else:
                     self.ekf.dvlUpdate(z, 'water')
+                self.lock.release()
+        
                 self.publishData()
         else:
-            rospy.loginfo('%s, invalid DVL velocity measurement!', self.name)
-        
+            # rospy.loginfo('%s, invalid DVL velocity measurement!', self.name)
+            pass
        
         
     
@@ -266,7 +284,7 @@ class Navigator :
         vehicle_rpy = PyKDL.Rotation.RPY(angle[0], angle[1], angle[2])
         svs_trans = self.svs_tf.p
         svs_trans = vehicle_rpy * svs_trans
-        svs_data = svs_data + svs_trans
+        svs_data = svs_data - svs_trans
         self.odom.pose.pose.position.z = svs_data[2] 
 
 
@@ -277,7 +295,7 @@ class Navigator :
         if not self.imu_data :
             angle = euler_from_quaternion([imu.orientation.x, imu.orientation.y, imu.orientation.z, imu.orientation.w])
             imu_data =  PyKDL.Rotation.RPY(angle[0], angle[1], angle[2])
-            imu_data = self.imu_tf.M * imu_data
+            imu_data = imu_data * self.imu_tf.M
             angle = imu_data.GetRPY()   
             self.last_imu_orientation = angle
             self.last_imu_update = imu.header.stamp
@@ -294,7 +312,7 @@ class Navigator :
         else:
             angle = euler_from_quaternion([imu.orientation.x, imu.orientation.y, imu.orientation.z, imu.orientation.w])
             imu_data =  PyKDL.Rotation.RPY(angle[0], angle[1], angle[2])
-            imu_data = self.imu_tf.M * imu_data
+            imu_data = imu_data * self.imu_tf.M
             angle = imu_data.GetRPY()   
             angle_quaternion = tf.transformations.quaternion_from_euler(angle[0], angle[1], angle[2])
             self.odom.pose.pose.orientation.x = angle_quaternion[0]
@@ -320,7 +338,10 @@ class Navigator :
             #####################################################################
             
             if self.makePrediction():
+                self.lock.acquire()
                 self.ekf.updatePrediction()
+                self.lock.release()
+        
                 self.publishData()
 
         
@@ -328,7 +349,11 @@ class Navigator :
         if not self.init :
             if self.imu_data and self.gps_data:
                 self.last_prediction = rospy.Time.now()
+        
+                self.lock.acquire()
                 self.ekf.initialize(array([self.init_north, self.init_east, 0.0, 0.0, 0.0]))
+                self.lock.release()
+        
                 self.init = True
             return False
         else :
@@ -339,13 +364,20 @@ class Navigator :
             now = rospy.Time.now()
             t = (now - self.last_prediction).to_sec()
             self.last_prediction = now
+        
+            self.lock.acquire()
             self.ekf.prediction(angle, t)
+            self.lock.release()
+        
             return True
         
             
     def publishData(self):
         if self.init:
+            self.lock.acquire()
             x = self.ekf.getStateVector()
+            self.lock.release()
+        
             angle = euler_from_quaternion([self.odom.pose.pose.orientation.x,
                                            self.odom.pose.pose.orientation.y,
                                            self.odom.pose.pose.orientation.z,

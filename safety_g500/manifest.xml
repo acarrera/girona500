@@ -10,7 +10,6 @@
   <url>http://xt.ufg.edu/wiki/index.php/safety_g500</url>
   <depend package="rospy"/>
   <depend package="roscpp"/>
-  <depend package="roslib"/>
   <depend package="std_msgs"/>
   <depend package="std_srvs"/>
   <depend package="cola2_lib"/>

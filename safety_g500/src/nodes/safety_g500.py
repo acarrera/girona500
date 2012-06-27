@@ -15,15 +15,18 @@ from threading import Thread
 from safety_g500.srv import MissionTimeout
 from std_msgs.msg import Int16
 from auv_msgs.msg import GoalDescriptor
+import cola2_lib
 
 class ErrorLevel:
     OK = 0
     INFORMATIVE = 1
     ASK_AUTHORIZATION = 2
     ABORT_MISSION = 3
-    SURFACE = 4
-    EMERGENCY_SURFACE = 5
-    DISABLE_PAYLOAD = 6
+    CONTROLLED_SURFACE = 4
+    SURFACE = 5
+    EMERGENCY_SURFACE = 6
+    DISABLE_PAYLOAD = 7
+    
 
 class ErrorCode:
     INIT = 15 
@@ -52,9 +55,14 @@ class SafetyG500:
         
         # to avoid multiple surface threads
         self.is_surfacing = False
+        self.controlled_surface_enabled = False
         
         # Error level
         self.error_code = ['0' for i in range(16)]
+        
+        # Init navigation
+        self.navigation = NavSts()
+        self.navigation.position.depth = 0.0
         
         # Create Subscriber
         rospy.Subscriber("/safety_g500/internal_sensors", InternalSensors, self.updateInternalSensors)
@@ -67,6 +75,7 @@ class SafetyG500:
         self.pub_body_velocity_req = rospy.Publisher("/control_g500/body_velocity_req", BodyVelocityReq)
         self.pub_error_code = rospy.Publisher("/safety_g500/error_code", Int16)
         
+        # Init sensor status
         self.internal_sensors_init = False
         self.nav_sensors_init = False
         self.batteries_init = False
@@ -77,6 +86,7 @@ class SafetyG500:
         self.internal_sensors = InternalSensors()
         self.battery_level = BatteryLevel()
         
+        # Init time
         self.init_time = rospy.Time.now()
         self.nav_sensors_status.header.stamp = self.init_time
         self.internal_sensors.header.stamp = self.init_time
@@ -88,8 +98,11 @@ class SafetyG500:
         rospy.Timer(rospy.Duration(2.0), self.errorCode)
         
         #Create services
-        self.reset_navigation = rospy.Service('/safety_g500/surface', Empty, self.surfaceSrv)
-        self.reset_navigation = rospy.Service('/safety_g500/emergency_surface', Empty, self.emergencySurfaceSrv)        
+        self.controlled_surface_service = rospy.Service('/safety_g500/controlled_surface', Empty, self.controlledSurfaceSrv)
+        self.surface_service = rospy.Service('/safety_g500/surface', Empty, self.surfaceSrv)
+        self.emergency_surface_service = rospy.Service('/safety_g500/emergency_surface', Empty, self.emergencySurfaceSrv)        
+        self.disable_surface_service = rospy.Service('/safety_g500/disable_surface', Empty, self.disableSurfaceSrv)        
+        self.reset_ms_service = rospy.Service('/safety_g500/reset_ms', Empty, self.resetMSSrv)        
   
         # Wait for necessary services
         # TODO: posar timeouts a tots els wait_for_service !!!
@@ -116,7 +129,12 @@ class SafetyG500:
                 rospy.logerr('%s, Error initializing Mission Timeout', self.name)
         except rospy.exceptions.ROSException:
             rospy.logerr('%s, Error initializing Mission Timeout. Are you in simulation mode?', self.name)
-            
+        
+        # Enable set zero velocity behavior
+        t = Thread(target=self.setZeroVelocity, args=())
+        t.start()
+        
+        # Define stop function
         rospy.on_shutdown(self.stop)
     
     
@@ -127,8 +145,27 @@ class SafetyG500:
         mt.time_out = 0
         rospy.loginfo('%s, Disable mission timeout: %s', self.name, mt)
         self.mission_timeout_srv(mt)
+    
         
-             
+    def resetMSSrv(self, req):
+        try:
+            rospy.wait_for_service('digital_output', 5)
+            digital_out_service = rospy.ServiceProxy('digital_output', DigitalOutput)
+            digital_output = DigitalOutputRequest()
+            digital_output.digital_out = 16
+            digital_output.value = True
+            digital_out_service(digital_output)
+        except rospy.exceptions.ROSException:
+            rospy.logerr('%s, Error reseting Mass Spectrometer.', self.name)
+        
+        return EmptyResponse()
+    
+    
+    def controlledSurfaceSrv(self, req):
+        self.controlledSurface()
+        return EmptyResponse()
+    
+                 
     def surfaceSrv(self, req):
         self.surface()
         return EmptyResponse()
@@ -139,7 +176,18 @@ class SafetyG500:
         return EmptyResponse()
     
     
+    def disableSurfaceSrv(self, req):
+        self.is_surfacing = False
+        self.controlled_surface_enabled = False
+        return EmptyResponse()
+    
+    
     def getConfig(self):
+        if rospy.has_param("safety_g500/set_zero_velocity_depth") :
+            self.set_zero_velocity_depth = rospy.get_param("safety_g500/set_zero_velocity_depth")
+        else:
+            rospy.logfatal("safety_g500/set_zero_velocity_depth")
+        
         if rospy.has_param("safety_g500/mission_time_out") :
             self.mission_time_out = rospy.get_param("safety_g500/mission_time_out")
         else:
@@ -205,7 +253,17 @@ class SafetyG500:
         else:
             rospy.logfatal("safety_g500/max_battery_level_period not found in param list")
     
-    
+        if rospy.has_param("safety_g500/start_vc_once_init") :
+            self.start_vc_once_init = rospy.get_param("safety_g500/start_vc_once_init")
+        else:
+            rospy.logfatal("safety_g500/start_vc_once_init not found in param list")
+
+        if rospy.has_param("safety_g500/controlled_surface_depth") :
+            self.controlled_surface_depth = rospy.get_param("safety_g500/controlled_surface_depth")
+        else:
+            rospy.logfatal("safety_g500/controlled_surface_depth not found in param list")
+
+
     def heartBeat(self, event):
         self.pub_heart_beat.publish(std_msgs.msg.Empty())
         
@@ -219,7 +277,8 @@ class SafetyG500:
     def periodicCheck(self, event):
         if self.internal_sensors_init and self.batteries_init and self.nav_sensors_init:
             if not self.velocity_controller_enabled:
-                self.enable_velocity_controller_srv(EmptyRequest())
+                if self.start_vc_once_init:
+                    self.enable_velocity_controller_srv(EmptyRequest())
                 self.velocity_controller_enabled = True
                 rospy.loginfo("  VEHICLE INITIALIZED  ")
                 self.error_code[ErrorCode.INIT] = '1'
@@ -322,7 +381,7 @@ class SafetyG500:
         if battery.charge < (self.min_battery_level/2):
             rospy.logerr("%s: Battery below half the minimum charge (%s). Emergency surface enabled.", self.name, battery.charge)
             self.error_code[ErrorCode.LOW_BAT] = '1'
-            self.recoveryAction(ErrorLevel.SURFACE)
+            self.recoveryAction(ErrorLevel.CONTROLLED_SURFACE)
         elif battery.charge < self.min_battery_level:
             rospy.logerr("%s: Battery below minimum charge (%s)", self.name, battery.charge)
             self.error_code[ErrorCode.LOW_BAT] = '1'
@@ -332,6 +391,7 @@ class SafetyG500:
     
     
     def updateNavSts(self, nav):
+        self.navigation = nav
         if  (nav.altitude > 0 and nav.altitude < self.min_altitude) or (nav.position.depth > self.max_depth):
             bvr = BodyVelocityReq()
             bvr.twist.linear.x = 0.0
@@ -340,7 +400,14 @@ class SafetyG500:
             bvr.twist.angular.x = 0.0
             bvr.twist.angular.y = 0.0
             bvr.twist.angular.z = 0.0
+            bvr.disable_axis.x = False
+            bvr.disable_axis.y = False
+            bvr.disable_axis.z = False
+            bvr.disable_axis.roll = True
+            bvr.disable_axis.pitch = True
+            bvr.disable_axis.yaw = False
             bvr.goal.priority =  GoalDescriptor.PRIORITY_EMERGENCY
+            bvr.goal.requester = self.name
             bvr.header.stamp = rospy.Time.now()
             self.pub_body_velocity_req.publish(bvr)
         
@@ -359,16 +426,26 @@ class SafetyG500:
             rospy.loginfo("%s: recovery action %s: ASK_AUTHORIZATION", self.name, error)
         elif error == ErrorLevel.ABORT_MISSION:
             self.abortMission()
+        elif error == ErrorLevel.CONTROLLED_SURFACE:
+            self.controlledSurface() 
         elif error == ErrorLevel.SURFACE:
             self.surface()
         elif error == ErrorLevel.EMERGENCY_SURFACE:
             self.emergencySurface()
         elif error == ErrorLevel.DISABLE_PAYLOAD:
-            self.disableOuput(3)
+            try:
+                rospy.wait_for_service('digital_output', 5)
+                digital_out_service = rospy.ServiceProxy('digital_output', DigitalOutput)
+                digital_output = DigitalOutputRequest()
+                digital_output.digital_out = 3
+                digital_output.value = False
+                digital_out_service(digital_output)
+            except rospy.exceptions.ROSException:
+                rospy.logerr('%s, Error disabling payload.', self.name)
         else: 
             rospy.loginfo("%s: recovery action %s: INVALID ERROR CODE", self.name, error)
-  
-    
+
+
     def abortMission(self):
         rospy.loginfo("%s: Abort Mission", self.name)
         try:
@@ -379,9 +456,26 @@ class SafetyG500:
             rospy.logerr('%s, Error aborting the mission.', self.name)
 
 
+    def controlledSurface(self):
+        rospy.loginfo("%s, Abort mission and surface in a controlled way", self.name)
+        self.abortMission()
+        if not self.is_surfacing and not self.controlled_surface_enabled:
+            self.controlled_surface_enabled = True
+            t = Thread(target=self.controlledSurfaceThrd, args=())
+            t.start()
+        else:
+            rospy.loginfo("%s: SURFACE is already under execution", self.name)
+
+
     def surface(self):
         rospy.loginfo("%s, Abort mission and surface", self.name)
+        
+        # Abort mission
         self.abortMission()
+        
+        # If controlled surface abort it
+        self.controlled_surface_enabled = False
+        
         if not self.is_surfacing:
             self.is_surfacing = True
             t = Thread(target=self.surfaceThrd, args=())
@@ -389,23 +483,54 @@ class SafetyG500:
         else:
             rospy.loginfo("%s: SURFACE is already under execution", self.name)
     
-                
+        
+    def controlledSurfaceThrd(self):
+        bvr = BodyVelocityReq()
+        bvr.twist.linear.x = 0.0
+        bvr.twist.linear.y = 0.0
+        bvr.twist.angular.x = 0.0
+        bvr.twist.angular.y = 0.0
+        bvr.twist.angular.z = 0.0
+        bvr.disable_axis.x = False
+        bvr.disable_axis.y = False
+        bvr.disable_axis.z = False
+        bvr.disable_axis.roll = True
+        bvr.disable_axis.pitch = True
+        bvr.disable_axis.yaw = False
+        bvr.goal.requester = self.name
+        bvr.goal.priority = GoalDescriptor.PRIORITY_EMERGENCY
+        
+        while self.controlled_surface_enabled:
+            error_z = (self.controlled_surface_depth - self.navigation.position.depth) * 0.3
+            bvr.twist.linear.z = cola2_lib.saturateValueFloat(error_z, 0.5)
+            bvr.header.stamp = rospy.Time.now()
+            self.pub_body_velocity_req.publish(bvr)
+            rospy.sleep(0.1)
+    
+            
     def surfaceThrd(self):
         #TODO: Tambe es podira parar el PID i publicar directament setpoints als motors.
         bvr = BodyVelocityReq()
         bvr.twist.linear.x = 0.0
         bvr.twist.linear.y = 0.0
-        bvr.twist.linear.z = -1.0
+        bvr.twist.linear.z = -0.5
         bvr.twist.angular.x = 0.0
         bvr.twist.angular.y = 0.0
         bvr.twist.angular.z = 0.0
+        bvr.disable_axis.x = False
+        bvr.disable_axis.y = False
+        bvr.disable_axis.z = False
+        bvr.disable_axis.roll = True
+        bvr.disable_axis.pitch = True
+        bvr.disable_axis.yaw = False
+        bvr.goal.requester = self.name
         bvr.goal.priority = GoalDescriptor.PRIORITY_EMERGENCY
         
-        while True:
+        while self.is_surfacing:
             bvr.header.stamp = rospy.Time.now()
             self.pub_body_velocity_req.publish(bvr)
             rospy.sleep(0.1)
-    
+
     
     def emergencySurface(self):
         rospy.loginfo("%s, Abort mission, surface and drop weight", self.name)
@@ -429,6 +554,30 @@ class SafetyG500:
         except rospy.exceptions.ROSException:
             rospy.logerr('%s, Error enabling drop weight system.', self.name)
      
+     
+    def setZeroVelocity(self):
+        r = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self.navigation.position.depth > self.set_zero_velocity_depth:
+                bvr = BodyVelocityReq()
+                bvr.twist.linear.x = 0.0
+                bvr.twist.linear.y = 0.0
+                bvr.twist.linear.z = 0.0
+                bvr.twist.angular.x = 0.0
+                bvr.twist.angular.y = 0.0
+                bvr.twist.angular.z = 0.0
+                bvr.disable_axis.x = False
+                bvr.disable_axis.y = False
+                bvr.disable_axis.z = False
+                bvr.disable_axis.roll = True
+                bvr.disable_axis.pitch = True
+                bvr.disable_axis.yaw = False
+                bvr.goal.priority =  GoalDescriptor.PRIORITY_LOW
+                bvr.goal.requester = 'set_zero_velocity'
+                bvr.header.stamp = rospy.Time.now()
+                self.pub_body_velocity_req.publish(bvr)
+            r.sleep()
+
 
 if __name__ == '__main__':
     try:

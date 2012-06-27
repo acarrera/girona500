@@ -8,11 +8,11 @@ import rospy
 import actionlib
 from std_srvs.srv import Empty, EmptyResponse, EmptyRequest
 
-
 # Msgs imports
 from auv_msgs.msg import *
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Quaternion
+from control_g500.msg import *
 
 # Python imports
 from numpy import *
@@ -79,7 +79,7 @@ class Pilot:
         else:
             rospy.logfatal("pilot/pid_x_z_yaw_td param not found")
 
-        self.pid_x_z_yaw = cola2_lib.PID(xzyaw_kp, xzyaw_ti, xzyaw_td, xzyaw_fff)
+        self.pid_x_z_yaw = cola2_lib.PID(xzyaw_kp, xzyaw_ti, xzyaw_td, xzyaw_fff, rospy.Time.now().to_sec())
         
         if rospy.has_param("pilot/pid_x_y_z_yaw_feed_forward_force"):
             xyzyaw_fff = array(rospy.get_param("pilot/pid_x_y_z_yaw_feed_forward_force"))
@@ -101,7 +101,7 @@ class Pilot:
         else:
             rospy.logfatal("pilot/pid_x_y_z_yaw_td param not found")
 
-        self.pid_x_y_z_yaw = cola2_lib.PID(xyzyaw_kp, xyzyaw_ti, xyzyaw_td, xyzyaw_fff)
+        self.pid_x_y_z_yaw = cola2_lib.PID(xyzyaw_kp, xyzyaw_ti, xyzyaw_td, xyzyaw_fff, rospy.Time.now().to_sec())
         
         if rospy.has_param("pilot/relative_pid_x_y_z_yaw_feed_forward_force"):
             relative_xyzyaw_fff = array(rospy.get_param("pilot/relative_pid_x_y_z_yaw_feed_forward_force"))
@@ -124,7 +124,8 @@ class Pilot:
             rospy.logfatal("pilot/relative_pid_x_y_z_yaw_td param not found")
 
         self.relative_pid_x_y_z_yaw = cola2_lib.PID(relative_xyzyaw_kp, relative_xyzyaw_ti, 
-                                                    relative_xyzyaw_td, relative_xyzyaw_fff)
+                                                    relative_xyzyaw_td, relative_xyzyaw_fff, 
+                                                    rospy.Time.now().to_sec())
         
         if rospy.has_param("pilot/max_velocity") :
             self.max_velocity = array(rospy.get_param("pilot/max_velocity"))

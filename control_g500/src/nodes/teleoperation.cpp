@@ -76,7 +76,7 @@ public:
 
 		//goal
 		body_velocity_req.goal.priority = auv_msgs::GoalDescriptor::PRIORITY_MANUAL_OVERRIDE;
-		body_velocity_req.goal.requester = "/control_g500/teleoperation";
+		body_velocity_req.goal.requester = "teleoperation";
 				
 		//twist set-point
 		body_velocity_req.twist.linear.x = msg->axes[0];
@@ -92,12 +92,38 @@ public:
 		body_velocity_req.disable_axis.pitch = true;
 		body_velocity_req.disable_axis.yaw = false;
 		
-		if( (body_velocity_req.twist.linear.x == 0.0) &&
-			(body_velocity_req.twist.linear.y == 0.0) &&
-			(body_velocity_req.twist.linear.z == 0.0) &&
-			(body_velocity_req.twist.angular.z == 0.0))
-			body_velocity_req.goal.priority = auv_msgs::GoalDescriptor::PRIORITY_LOW;
-		
+		// TO BE COMMENTED --> only for debug purposes
+//		if (body_velocity_req.twist.linear.x != 0.0) 
+//			body_velocity_req.disable_axis.x = false;
+//		else 
+//			body_velocity_req.disable_axis.x = true;
+//
+//		if (body_velocity_req.twist.linear.y != 0.0) 
+//			body_velocity_req.disable_axis.y = false;
+//		else 
+//			body_velocity_req.disable_axis.y = true;
+//
+//		if (body_velocity_req.twist.linear.z != 0.0) 
+//			body_velocity_req.disable_axis.z = false;
+//		else 
+//			body_velocity_req.disable_axis.z = true;
+//
+//		if (body_velocity_req.twist.angular.z != 0.0) 
+//			body_velocity_req.disable_axis.yaw = false;
+//		else 
+//			body_velocity_req.disable_axis.yaw = true;
+		// <--
+
+		if((body_velocity_req.twist.linear.x == 0.0) &&
+		   (body_velocity_req.twist.linear.y == 0.0) &&
+		   (body_velocity_req.twist.linear.z == 0.0) &&
+		   (body_velocity_req.twist.angular.z == 0.0)){
+				body_velocity_req.disable_axis.x = true;
+				body_velocity_req.disable_axis.y = true;
+				body_velocity_req.disable_axis.z = true;
+				body_velocity_req.disable_axis.yaw = true;
+				body_velocity_req.goal.priority = auv_msgs::GoalDescriptor::PRIORITY_LOW;
+		}
 		_pub_body_velocity_req.publish(body_velocity_req);
 	}
 
@@ -130,12 +156,12 @@ public:
 				body_velocity_req.goal.requester = "/control_g500/teleoperation" ;
 	
 				//disabled_axis
-				body_velocity_req.disable_axis.x = false;
-				body_velocity_req.disable_axis.y = false;
-				body_velocity_req.disable_axis.z = false;
+				body_velocity_req.disable_axis.x = true;
+				body_velocity_req.disable_axis.y = true;
+				body_velocity_req.disable_axis.z = true;
 				body_velocity_req.disable_axis.roll = true;
 				body_velocity_req.disable_axis.pitch = true;
-				body_velocity_req.disable_axis.yaw = false;
+				body_velocity_req.disable_axis.yaw = true;
 	
 				//twist set-point
 				body_velocity_req.twist.linear.x = 0.0;
