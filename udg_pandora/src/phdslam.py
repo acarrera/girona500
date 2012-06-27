@@ -1,3 +1,4 @@
+#! /usr/bin/env python 
 # -*- coding: utf-8 -*-
 """
 Created on Mon Jun 25 14:10:01 2012
@@ -19,9 +20,9 @@ class PhdSlam():
         self.name = name
         
         # Subscribe to visual features node
-        self.visionSub = metaclient.Subscriber("/feature_detector/vision_pcl", PointCloud2, self.update_features)
+        self.visionSub = metaclient.Subscriber("/feature_detector/vision_pcl", PointCloud2, {}, self.update_features)
         # Subscribe to acoustic features node
-        self.acousticSub = metaclient.Subscriber("/feature_detector/acoustic_pcl", PointCloud2, self.update_features)
+        self.acousticSub = metaclient.Subscriber("/feature_detector/acoustic_pcl", PointCloud2, {}, self.update_features)
         
         # Create publisher
         self.pub_nav_sts = metaclient.Publisher("/phdslam/nav_sts", NavSts, {})

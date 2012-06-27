@@ -48,12 +48,6 @@ rosbuild_add_executable(teleoperation src/nodes/teleoperation.cpp)
 target_link_libraries(teleoperation ${Boost_LIBRARIES})
 
 
-#rosbuild_add_executable(ps3_joystick src/nodes/ps3_joystick.cpp)
-#rosbuild_add_executable(wingman_joystick src/nodes/wingman_joystick.cpp)
-
-#rosbuild_add_executable(keyboard_pose src/nodes/keyboard_pose.cpp)
 rosbuild_add_executable(keyboard src/nodes/keyboard.cpp)
 
-rosbuild_add_executable(seaeye_thrusters src/nodes/seaeye_thrusters.cpp)
-target_link_libraries(seaeye_thrusters ${Boost_LIBRARIES})
 

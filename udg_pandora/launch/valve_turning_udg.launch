@@ -1,14 +1,23 @@
 <launch>
 	<!-- Launch file for UDG - Valve Turning Scenario -->
 	
+	<!-- Load simulator and basic Girona500 nodes -->
+	<include file="$(find control_g500)/../launch/start_g500-sim.launch" />
+
+
 	<!-- Load meta-data -->
 	<rosparam command="load" file="$(find udg_pandora)/meta_data/visual_detector_meta_data.yaml" />
 	<rosparam command="load" file="$(find udg_pandora)/meta_data/acoustic_detector_meta_data.yaml" />
+	<rosparam command="load" file="$(find udg_pandora)/meta_data/feature_detector.yaml" />
+	<rosparam command="load" file="$(find udg_pandora)/meta_data/phdslam.yaml" />
 	
 	<!-- Load config files -->
 
 	<!-- Load nodes -->
 	<node name="visual_detector" pkg="udg_pandora" type="visual_detector.py" output="screen"/>
 	<node name="acoustic_detector" pkg="udg_pandora" type="acoustic_detector.py" output="screen"/>
+	<node name="feature_detector" pkg="udg_pandora" type="feature_detector.py" output="screen"/>
+	<node name="phdslam" pkg="udg_pandora" type="phdslam.py" output="screen"/>
+
 </launch>
 
