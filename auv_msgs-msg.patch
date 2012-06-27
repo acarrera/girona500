@@ -1,0 +1,53 @@
+diff -rupN msg/BodyForceReq.msg msg_new/BodyForceReq.msg
+--- msg/BodyForceReq.msg	2012-06-27 12:04:14.061859789 +0200
++++ msg_new/BodyForceReq.msg	2012-06-27 12:09:23.397919943 +0200
+@@ -10,3 +10,5 @@ GoalDescriptor goal
+ 
+ geometry_msgs/Wrench wrench
+ 
++# Axes of control to disable, in body frame.
++Bool6Axis disable_axis
+\ No newline at end of file
+diff -rupN msg/BodyVelocityReq.msg msg_new/BodyVelocityReq.msg
+--- msg/BodyVelocityReq.msg	2012-06-27 12:04:14.061859789 +0200
++++ msg_new/BodyVelocityReq.msg	2012-06-27 12:09:23.397919943 +0200
+@@ -10,3 +10,5 @@ GoalDescriptor goal
+ 
+ geometry_msgs/Twist twist
+ 
++# Axes of control to disable, in body frame.
++Bool6Axis disable_axis
+diff -rupN msg/GoalDescriptor.msg msg_new/GoalDescriptor.msg
+--- msg/GoalDescriptor.msg	2012-06-27 12:04:14.057860278 +0200
++++ msg_new/GoalDescriptor.msg	2012-06-27 12:09:23.397919943 +0200
+@@ -10,7 +10,8 @@ string requester
+ uint32 id
+ 
+ uint32 priority
+-uint32 PRIORITY_NORMAL = 0
+-uint32 PRIORITY_AVOID_OBSTACLE = 10
+-uint32 PRIORITY_EMERGENCY = 20
+-uint32 PRIORITY_MANUAL_OVERRIDE  = 30
++uint32 PRIORITY_LOW = 0
++uint32 PRIORITY_NORMAL = 10
++uint32 PRIORITY_AVOID_OBSTACLE = 20
++uint32 PRIORITY_EMERGENCY = 30
++uint32 PRIORITY_MANUAL_OVERRIDE  = 40
+diff -rupN msg/NED.msg msg_new/NED.msg
+--- msg/NED.msg	2012-06-27 12:04:14.057860278 +0200
++++ msg_new/NED.msg	2012-06-27 12:09:23.397919943 +0200
+@@ -1,11 +1,10 @@
+ # Position or velocity in the right-handed NED coordinate frame.
+ 
+ # metres north, positive towards true north.
+-float32 north
++float64 north
+ 
+ # metres east, positive towards true east.
+-float32 east
++float64 east
+ 
+ # metres down, positive towards the centre of the earth.
+-float32 depth
+-
++float64 depth
