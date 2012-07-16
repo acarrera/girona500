@@ -68,3 +68,14 @@ girona500/communication_g500/bin/
 girona500/communication_g500/build/
 girona500/communication_g500/msg_gen/
 girona500/communication_g500/src/communication_g500/
+control_g500/downloaded
+control_g500/msg/WorldWaypointReqAction.msg
+control_g500/msg/WorldWaypointReqActionFeedback.msg
+control_g500/msg/WorldWaypointReqActionGoal.msg
+control_g500/msg/WorldWaypointReqActionResult.msg
+control_g500/msg/WorldWaypointReqFeedback.msg
+control_g500/msg/WorldWaypointReqGoal.msg
+control_g500/msg/WorldWaypointReqResult.msg
+control_g500/src/control_g500/srv/
+navigation_g500/src/navigation_g500/srv/
+
