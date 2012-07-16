@@ -1,3 +1,7 @@
+control_g500/downloaded
+navigation_g500/src/navigation_g500/srv/_*
+control_g500/src/control_g500/srv/_*
+control_g500/msg/WorldWaypointReq*
 udg_pandora/src/udg_pandora/__init__.py
 udg_pandora/src/udg_pandora/msg/*
 build/*
