@@ -1,0 +1,9 @@
+Header header
+int32 analogInput
+float64[3] magnetometer
+float64 roll
+float64 pitch
+float64 yaw
+float64 temperature
+float64[3] accelerometer
+float64[3] gyro
