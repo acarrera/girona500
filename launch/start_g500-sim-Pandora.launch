@@ -16,6 +16,7 @@
 	
 	<!-- MISION FILE TO BE LOADED -->	
 	<rosparam command="load" file="$(find control_g500)/../launch/mission_default.yaml" />
+	<rosparam command="load" file="$(find control_g500)/../launch/basic_mission_parameters.yaml" />
 
 	<!-- ################## AVOID TO TOUCH ANYTHING BELOW THIS LINE ##################### -->
 
