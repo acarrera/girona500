@@ -1,0 +1,66 @@
+<launch>
+	<arg name="enableLog" value="false" />
+	<arg name="enableJoystick" value="false" />
+	<arg name="simulationMode" value="true" />
+	<arg name="enableUWSim" value="true"/>
+
+
+	<!-- Basic Mission Parameters -->
+	<param name="/velocity_controller/is_enabled" value="false"/>
+	<param name="/navigator/gps_update" value = "true"/>
+
+	<!-- 
+		/sound_speed is an integer. It is used by the DVL if teledyne_explorer_dvl/need_configuration: true 			and by the Multibeam if imagenex_multibeam_sonar/automatic_sound_speed: false 
+	-->
+	<param name="/sound_speed" value = "1500"/> 
+	
+	<!-- MISION FILE TO BE LOADED -->	
+	<rosparam command="load" file="$(find control_g500)/../launch/mission_default.yaml" />
+	<rosparam command="load" file="$(find control_g500)/../launch/basic_mission_parameters.yaml" />
+
+	<!-- ################## AVOID TO TOUCH ANYTHING BELOW THIS LINE ##################### -->
+
+	<rosparam command="load" file="$(find safety_g500)/config/safety_g500.yaml" />	
+	<node name="safety_g500" pkg="safety_g500" type="safety_g500.py" output="screen"/>
+	
+
+	<!-- Load simulation parameters -->
+	<rosparam command="load" file="$(find navigation_g500)/config/dynamics_odin.yaml" />
+	<rosparam command="load" file="$(find control_g500)/config/thruster_allocator_sim.yaml" />
+	<rosparam command="load" file="$(find control_g500)/config/velocity_controller_sim.yaml" />	
+	<rosparam command="load" file="$(find control_g500)/config/pose_controller_sim.yaml" />		
+
+	<!-- Run dynamics -->		
+	<node name="dynamics" pkg="navigation_g500" type="dynamics.py" respawn="false" />
+
+	<!-- Enable fake main control board -->
+	<node name="fake_main_board_g500" pkg="safety_g500" type="fake_main_board_g500.py" />
+
+	<!-- Run UWSim -->
+	<node if="$(arg enableUWSim)" name="UWSim" pkg="UWSim" type="UWSim" args="--configfile $(find control_g500)/../data2/scenes2/cirsPandora.xml --dataPath $(find control_g500)/../data2/ " respawn="false" />
+
+
+
+	<!-- Run Control Stack -->
+	<rosparam command="load" file="$(find control_g500)/config/joy.yaml" />
+	<rosparam command="load" file="$(find control_g500)/config/pilot.yaml" />	
+	<node name="teleoperation" pkg="control_g500" type="teleoperation"/>
+	<node name="thruster_allocator" pkg="control_g500" type="thruster_allocator.py"/>
+	<node name="velocity_controller" pkg="control_g500" type="velocity_controller.py"/> 
+	<node name="merge_bvr" pkg="control_g500" type="merge_bvr.py"/>
+	<node name="pilot" pkg="control_g500" type="pilot.py" output="screen"/>
+	<node name="captain" pkg="control_g500" type="captain.py" output="screen"/>
+	
+
+	<!-- Run Navigation Stack -->
+	<rosparam command="load" file="$(find navigation_g500)/config/navigator.yaml" />
+	<node name="navigator" pkg="navigation_g500" type="navigator.py" output="screen"/>
+
+<!--	<node name="keyboard" pkg="control_g500" type="keyboard" /> -->
+	<node name="keyboardTestArm" pkg="control_g500" type="keyboardTestArm" />
+
+	<!-- Logs in home folder of linux user, format is g500_xxxxxxxxx.bag -->
+	<node if="$(arg enableLog)" name="bag_record" output="screen" pkg="rosbag" type="record" args="-a -x '(/camera/image_m(.)*)|(/camera/image_c(.)*)|(/camera/image_rect/(.)*)|(/camera/image_rect)|(/camera/image_raw)|(/camera/image_rect_color/compressed)|(/camera/image_raw/compressed)' --split --size 2048 -o /home/$(env LOGNAME)/g500" />
+	
+</launch>
+

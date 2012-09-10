@@ -49,5 +49,8 @@ target_link_libraries(teleoperation ${Boost_LIBRARIES})
 
 
 rosbuild_add_executable(keyboard src/nodes/keyboard.cpp)
+rosbuild_add_executable(keyboardTestArm src/nodes/keyboardTestArm.cpp)
+
+rosbuild_add_executable(arm_controller src/nodes/arm_controller.cpp)
 
 

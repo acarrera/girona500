@@ -23,6 +23,8 @@
   <depend package="actionlib_msgs"/>
   <depend package="actionlib"/>
   <depend package="safety_g500"/>
+  <depend package="kdl_parser" />
+  <depend package="urdf" />
 </package>
 
 
